@@ -4,16 +4,12 @@ import utime
 
 robot = Maqueen()
 
-FORWARD = 80
-TURN = 40
-BIAS = 10
+FORWARD = 70
+TURN_FAST = 85   # boost outer wheel for sharper correction
+TURN_SLOW = 0     # stop inner wheel completely for aggressive turn
 
-last_left_speed = 0
-last_right_speed = 0
-last_left_dir = 0
-last_right_dir = 0
-
-from microbit import *
+last_left_speed = FORWARD
+last_right_speed = FORWARD
 
 smirk = Image(
     "00000:"
@@ -29,41 +25,32 @@ while True:
     left = robot.line_left()     # 0 = black, 1 = white
     right = robot.line_right()   # 0 = black, 1 = white
 
-    # BOTH BLACK = GO STRAIGHT
+    # --- BOTH BLACK → GO STRAIGHT ---
     if left == 0 and right == 0:
-        L = FORWARD #- BIAS
+        L = FORWARD
         R = FORWARD
-        LD = 1
-        RD = 0
 
-    # LEFT WHITE = TURN RIGHT (correct direction) 
+    # --- LEFT BLACK, RIGHT WHITE → VEER LEFT ---
     elif left == 0 and right == 1:
-        L = TURN
-        R = TURN
-        LD = 1      # left wheel backward
-        RD = 0      # right wheel forward
+        L = TURN_SLOW
+        R = TURN_FAST
 
-    # RIGHT WHITE = TURN LEFT (correct direction)
+    # --- LEFT WHITE, RIGHT BLACK → VEER RIGHT ---
     elif left == 1 and right == 0:
-        L = TURN
-        R = TURN
-        LD = 0      # left wheel forward
-        RD = 1      # right wheel backward
+        L = TURN_FAST
+        R = TURN_SLOW
 
-    # BOTH WHITE = KEEP LAST ACTION 
+    # --- BOTH WHITE → KEEP LAST ACTION ---
     else:
         L = last_left_speed
         R = last_right_speed
-        LD = last_left_dir
-        RD = last_right_dir
 
-    robot.motor_left(L, LD)
-    robot.motor_right(R, RD)
+    # Both wheels always go forward (direction = 0)
+    robot.motor_left(L, 0)
+    robot.motor_right(R, 0)
 
     last_left_speed = L
     last_right_speed = R
-    last_left_dir = LD
-    last_right_dir = RD
 
     utime.sleep_ms(10)
 
