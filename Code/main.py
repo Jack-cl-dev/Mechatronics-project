@@ -13,6 +13,18 @@ last_right_speed = 0
 last_left_dir = 0
 last_right_dir = 0
 
+from microbit import *
+
+smirk = Image(
+    "00000:"
+    "09090:"
+    "00000:"
+    "00009:"
+    "09990"
+)
+
+display.show(smirk)
+
 while True:
     left = robot.line_left()     # 0 = black, 1 = white
     right = robot.line_right()   # 0 = black, 1 = white
@@ -54,4 +66,3 @@ while True:
     last_right_dir = RD
 
     utime.sleep_ms(10)
-
