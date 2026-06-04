@@ -31,20 +31,20 @@ while True:
 
     # --- BOTH BLACK → GO STRAIGHT ---
     if left == 0 and right == 0:
-        L = FORWARD - BIAS
+        L = FORWARD #- BIAS
         R = FORWARD
-        LD = 0
+        LD = 1
         RD = 0
 
-    # --- LEFT WHITE → TURN LEFT (correct direction) ---
-    elif left == 1 and right == 0:
+    # --- LEFT WHITE → TURN RIGHT (correct direction) ---
+    elif left == 0 and right == 1:
         L = TURN
         R = TURN
         LD = 1      # left wheel backward
         RD = 0      # right wheel forward
 
-    # --- RIGHT WHITE → TURN RIGHT (correct direction) ---
-    elif left == 0 and right == 1:
+    # --- RIGHT WHITE → TURN LEFT (correct direction) ---
+    elif left == 1 and right == 0:
         L = TURN
         R = TURN
         LD = 0      # left wheel forward
@@ -66,3 +66,4 @@ while True:
     last_right_dir = RD
 
     utime.sleep_ms(10)
+
