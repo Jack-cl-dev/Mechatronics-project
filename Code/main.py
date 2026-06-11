@@ -1,6 +1,10 @@
 from microbit import *
-from macqueen import Maqueen
+from maqueen import Maqueen
 import utime
+
+# - Important commands -
+# mpremote connect auto cp main.py :main.py
+# mpremote connect auto run main.py
 
 robot = Maqueen()
 
