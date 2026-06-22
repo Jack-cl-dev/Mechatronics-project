@@ -8,8 +8,8 @@ import utime
 
 robot = Maqueen()
 
-FORWARD = 70
-TURN_FAST = 85   # boost outer wheel for sharper correction
+FORWARD = 65
+TURN_FAST =20   # boost outer wheel for sharper correction
 TURN_SLOW = 0     # stop inner wheel completely for aggressive turn
 
 last_left_speed = FORWARD
@@ -37,11 +37,13 @@ while True:
     # --- LEFT BLACK, RIGHT WHITE → VEER LEFT ---
     elif left == 0 and right == 1:
         L = TURN_SLOW
+        robot.motor_left(TURN_SLOW, 1)
         R = TURN_FAST
 
     # --- LEFT WHITE, RIGHT BLACK → VEER RIGHT ---
     elif left == 1 and right == 0:
         L = TURN_FAST
+        robot.motor_right(TURN_SLOW, 1)
         R = TURN_SLOW
 
     # --- BOTH WHITE → KEEP LAST ACTION ---
