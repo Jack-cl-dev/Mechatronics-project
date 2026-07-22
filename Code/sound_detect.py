@@ -1,44 +1,38 @@
 from microbit import *
 from maqueen import Maqueen
+import utime
 
-robot = Maqueen()
+# Adjustable sensitivity (0–255)
+CLAP_THRESHOLD = 180        # Loud clap/yell
+DEBOUNCE_TIME_MS = 600      # Prevent double-trigger
 
-# Set a loud sound level that counts as a clap or yell.
-# Normal room noise is usually around 20–60.
-LOUD = 120
+class SoundSwitch:
+    def __init__(self):
+        self.state = False          # False = OFF, True = ON
+        self.last_trigger = 0       # Time of last clap
 
-# Ignore the first reading because it jumps.
-soundLevel = microphone.sound_level()
-sleep(200)
+    def update(self):
+        #Check microphone and toggle state on loud sound.
+        sound = microphone.sound_level()
+        now = utime.ticks_ms()
 
-# Keep track of whether the motors are running.
-motors_on = False
+        # Detect loud sound + debounce
+        if sound > CLAP_THRESHOLD and (now - self.last_trigger) > DEBOUNCE_TIME_MS:
+            self.state = not self.state
+            self.last_trigger = now
 
-# Stop motors at the start.
-robot.motor_left(0, 0)
-robot.motor_right(0, 0)
+            # Debug feedback (remove later if you want)
+            if self.state:
+                display.show("1")   # ON
+            else:
+                display.show("0")   # OFF
+
+        return self.state
+
+
+# Standalone test mode (runs if this file is executed directly)
+sound_switch = SoundSwitch()
 
 while True:
-    # Read the current sound level.
-    soundLevel = microphone.sound_level()
-    print(soundLevel)
-
-    # If the sound is loud enough, toggle motors.
-    if soundLevel > LOUD:
-        motors_on = not motors_on
-
-        if motors_on:
-            # Turn motors on (forward).
-            robot.motor_left(150, 1)
-            robot.motor_right(150, 1)
-            display.show(Image.HAPPY)
-        else:
-            # Turn motors off.
-            robot.motor_left(0, 0)
-            robot.motor_right(0, 0)
-            display.show(Image.NO)
-
-        # Small delay so one clap doesn't trigger twice.
-        sleep(600)
-
-    sleep(100)
+    sound_switch.update()
+    utime.sleep_ms(50)
