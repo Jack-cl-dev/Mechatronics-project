@@ -1,5 +1,6 @@
 from microbit import *
 from maqueen import Maqueen
+from sound_detect import SoundSwitch
 import utime
 
 # - Important commands -
@@ -7,10 +8,11 @@ import utime
 # mpremote connect auto run main.py
 
 robot = Maqueen()
+sound_switch = SoundSwitch()   # <--- NEW
 
 FORWARD = 90
-TURN_FAST = 60    # outer wheel speed during turn
-TURN_SLOW = 40    # inner wheel REVERSED for sharper pivot
+TURN_FAST = 60
+TURN_SLOW = 40
 
 last_left_speed = FORWARD
 last_right_speed = FORWARD
@@ -28,7 +30,18 @@ smirk = Image(
 display.show(smirk)
 
 while True:
-    left = robot.line_left()     # Maybe: 1 = black, 0 = white?
+    # --- SOUND TOGGLE CHECK ---
+    wheels_on = sound_switch.update()
+
+    # If wheels OFF → stop motors and skip logic
+    if not wheels_on:
+        robot.motor_left(0, 0)
+        robot.motor_right(0, 0)
+        utime.sleep_ms(50)
+        continue
+
+    # --- LINE SENSORS ---
+    left = robot.line_left()
     right = robot.line_right()
 
     # --- BOTH BLACK → GO STRAIGHT ---
@@ -46,17 +59,17 @@ while True:
         L_speed, L_dir = TURN_FAST, 0
         R_speed, R_dir = TURN_SLOW, 1
 
-    # --- BOTH WHITE → REVERSE---
+    # --- BOTH WHITE → REVERSE ---
     else:
         R_speed, R_dir = TURN_SLOW, 1
         L_speed, L_dir = TURN_SLOW, 1
 
-    # Apply motor commands
+    # --- APPLY MOTOR COMMANDS ---
     robot.motor_left(L_speed, L_dir)
     utime.sleep_ms(1)
     robot.motor_right(R_speed, R_dir)
 
-    # Store current values (but NOT when both white)
+    # Store last values (except both white)
     if not (right == 0 and left == 0):
         last_left_speed = L_speed
         last_right_speed = R_speed
