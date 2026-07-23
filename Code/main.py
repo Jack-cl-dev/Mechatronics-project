@@ -3,12 +3,12 @@ from maqueen import Maqueen
 from sound_detect import SoundSwitch
 import utime
 
-# - Important commands -
-# mpremote connect auto cp main.py :main.py
-# mpremote connect auto run main.py
-
 robot = Maqueen()
-sound_switch = SoundSwitch()   # <--- NEW
+
+# Override sensitivity for noisy environments
+sound_switch = SoundSwitch()
+sound_switch.CLAP_THRESHOLD = 220      # Higher threshold
+sound_switch.DEBOUNCE_TIME_MS = 800    # More stable
 
 FORWARD = 90
 TURN_FAST = 60
@@ -19,25 +19,23 @@ last_right_speed = FORWARD
 last_left_dir = 0
 last_right_dir = 0
 
-smirk = Image(
-    "00000:"
-    "09090:"
-    "00000:"
-    "00009:"
-    "09990"
-)
-
-display.show(smirk)
+display.show(Image.HAPPY)
 
 while True:
     # --- SOUND TOGGLE CHECK ---
     wheels_on = sound_switch.update()
 
+    # Visual indicator (non-blocking)
+    if wheels_on:
+        display.show("1")
+    else:
+        display.show("0")
+
     # If wheels OFF → stop motors and skip logic
     if not wheels_on:
         robot.motor_left(0, 0)
         robot.motor_right(0, 0)
-        utime.sleep_ms(50)
+        utime.sleep_ms(40)
         continue
 
     # --- LINE SENSORS ---
