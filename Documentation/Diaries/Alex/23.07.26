@@ -1,0 +1,2 @@
+Updated gannt, and diaries
+Also fully completed Sound_detect.py file. but instead of making it directly to the motors (which are having complexity that jacks dealing with rn) i made it display eiterh 1 (for on) and 0 (for off). and this worked sufficently and satisfactory.
