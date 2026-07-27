@@ -27,7 +27,7 @@ while True:
 
     # Visual indicator (non-blocking)
     if wheels_on:
-        display.show("1")
+        continue
     else:
         display.show("0")
 
