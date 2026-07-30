@@ -1,5 +1,7 @@
 from microbit import *
 from maqueen import Maqueen
+from sound_detect import SoundSwitch
+from obstacle_detect import ObstacleDetector
 import utime
 
 # - Important commands -
@@ -7,6 +9,8 @@ import utime
 # mpremote connect auto run main.py
 
 robot = Maqueen()
+sound_switch = SoundSwitch()
+detector = ObstacleDetector(robot, stop_distance=10)
 
 # --- HARDWARE POLARITY ---
 # On this robot the line sensors read:
@@ -53,6 +57,23 @@ def drive(l_speed, l_dir, r_speed, r_dir):
     robot.motor_right(r_speed, r_dir)
 
 while True:
+    motors_running = sound_switch.state
+    horn_active = detector.horn_active
+
+    wheels_on = sound_switch.update(motors_running, horn_active)
+
+    if not wheels_on:
+        robot.motor_left(0, 0)
+        robot.motor_right(0, 0)
+        utime.sleep_ms(40)
+        continue
+
+    if detector.check():
+        detector.react()
+        continue
+
+    left = robot.line_left()
+    right = robot.line_right()
     left = on_line_left()      # 1 = on the line, 0 = off the line
     right = on_line_right()
 
