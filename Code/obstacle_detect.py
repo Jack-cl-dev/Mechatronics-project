@@ -1,6 +1,7 @@
 from microbit import *
 import utime
 import audio
+import object_avoidance
 
 class ObstacleDetector:
     def __init__(self, robot, stop_distance=10):
@@ -28,4 +29,5 @@ class ObstacleDetector:
         audio.play(Sound.SAD)
         utime.sleep_ms(self.horn_duration)
         self.horn_active = False
+        object_avoidance.ObjectAvoidance()
         self.close_streak = 0
