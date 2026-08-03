@@ -1,38 +1,42 @@
 from microbit import *
-from maqueen import Maqueen
 import utime
 
-# Adjustable sensitivity (0–255)
-CLAP_THRESHOLD = 180        # Loud clap/yell
-DEBOUNCE_TIME_MS = 600      # Prevent double-trigger
+CLAP_MARGIN = 70           # how much louder than background = a clap
+MIN_CLAP_LEVEL = 200       # absolute floor, ignore anything below this
+DEBOUNCE_TIME_MS = 700
+QUIET_STREAK_NEEDED = 8    # consecutive quiet readings needed to re-arm
 
 class SoundSwitch:
     def __init__(self):
-        self.state = False          # False = OFF, True = ON
-        self.last_trigger = 0       # Time of last clap
+        self.state = False
+        self.last_trigger = 0
+        self.armed = True
+        self.quiet_streak = 0
+        self.baseline = microphone.sound_level()
 
     def update(self):
-        #Check microphone and toggle state on loud sound.
         sound = microphone.sound_level()
         now = utime.ticks_ms()
+        threshold = max(MIN_CLAP_LEVEL, self.baseline + CLAP_MARGIN)
 
-        # Detect loud sound + debounce
-        if sound > CLAP_THRESHOLD and (now - self.last_trigger) > DEBOUNCE_TIME_MS:
-            self.state = not self.state
-            self.last_trigger = now
-
-            # Debug feedback (remove later if you want)
-            if self.state:
-                display.show("1")   # ON
+        if self.armed:
+            if sound > threshold and (now - self.last_trigger) > DEBOUNCE_TIME_MS:
+                self.state = not self.state
+                self.last_trigger = now
+                self.armed = False
+                self.quiet_streak = 0
             else:
-                display.show("0")   # OFF
+                # slowly track quiet-room ambient level so threshold adapts
+                self.baseline += (sound - self.baseline) * 0.05
+        else:
+            # require several consecutive quiet samples in a row, not just one,
+            # so a single dip in motor noise can't immediately re-arm it
+            if sound < threshold:
+                self.quiet_streak += 1
+                if self.quiet_streak >= QUIET_STREAK_NEEDED:
+                    self.armed = True
+                    self.quiet_streak = 0
+            else:
+                self.quiet_streak = 0
 
         return self.state
-
-
-# Standalone test mode (runs if this file is executed directly)
-sound_switch = SoundSwitch()
-
-while True:
-    sound_switch.update()
-    utime.sleep_ms(50)
