@@ -1,0 +1,7 @@
+###30/07/27
+today i finsihed the sound detection. I've dropped the horn for now, planning to come back to it and instead, I'm occupying my time with headlights. which I have for the most part
+gotten working, however, Im having trouble figuring out where the robot detects the lights from, they either work, don't work or work too much (stay on no matter work). 
+
+I have also implemented the sound_detect.py into the most up-to-date main.py. ensuring that everything runs smoothly.
+
+I should also change the sound threshold tyo allow simpler noises to set it off instead of a super loud nouise being needed.
