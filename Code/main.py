@@ -2,15 +2,20 @@ from microbit import *
 from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
+from compass import Compass
 import utime
 
 # - Important commands -
-# mpremote connect auto cp main.py :main.py
-# mpremote connect auto run main.py
+# Every module imported below has to be on the device, not just main.py, so use
+# the deploy script from the repo root rather than copying one file:
+#   Linux:    ./deploy.sh
+#   Windows:  double-click deploy.bat and pick option 1
+# To test obstacle avoidance on its own (no line following, no clap switch):
+#   Linux:    ./deploy.sh test_avoidance.py
+#   Windows:  double-click deploy.bat and pick option 2
 
 robot = Maqueen()
 sound_switch = SoundSwitch()
-detector = ObstacleDetector(robot, stop_distance=10)
 
 # --- HARDWARE POLARITY ---
 # On this robot the line sensors read:
@@ -23,6 +28,16 @@ def on_line_left():
 
 def on_line_right():
     return 0 if robot.line_right() else 1
+
+def line_seen():
+    return on_line_left() == 1 or on_line_right() == 1
+
+# Obstacle avoidance steers by compass heading, so get the tilt-to-fill
+# calibration out of the way here rather than halfway through a manoeuvre.
+# Hold the robot away from the motors while calibrating -- they're magnets.
+Compass().ensure_calibrated()
+
+detector = ObstacleDetector(robot, stop_distance=10, line_seen=line_seen)
 
 # Direction constants
 FWD = 0      # direction bit for forward
@@ -58,9 +73,9 @@ def drive(l_speed, l_dir, r_speed, r_dir):
 
 while True:
     motors_running = sound_switch.state
-    horn_active = detector.horn_active
-
-    wheels_on = sound_switch.update(motors_running, horn_active)
+    # react() blocks, so horn_active is never True by the time we get here --
+    # is_noisy() covers the settling period after it instead.
+    wheels_on = sound_switch.update(motors_running, detector.is_noisy())
 
     if not wheels_on:
         robot.motor_left(0, 0)
@@ -72,8 +87,6 @@ while True:
         detector.react()
         continue
 
-    left = robot.line_left()
-    right = robot.line_right()
     left = on_line_left()      # 1 = on the line, 0 = off the line
     right = on_line_right()
 
@@ -152,7 +165,3 @@ while True:
         display.show(Image(":".join(parts)))
 
     utime.sleep_ms(LOOP_DELAY_MS)
-
-    utime.sleep_ms(LOOP_DELAY_MS)
-
-
