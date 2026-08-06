@@ -2,6 +2,7 @@ from microbit import *
 from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
+from headlights import Headlights
 import utime
 
 # - Important commands -
@@ -11,6 +12,7 @@ import utime
 robot = Maqueen()
 sound_switch = SoundSwitch()
 detector = ObstacleDetector(robot, stop_distance=10)
+headlights = Headlights(robot)
 
 # --- HARDWARE POLARITY ---
 #   1 = WHITE surface (off the line)
@@ -48,6 +50,8 @@ def drive(l_speed, l_dir, r_speed, r_dir):
     robot.motor_right(r_speed, r_dir)
 
 while True:
+    headlights.update()
+
     wheels_on = sound_switch.update()
 
     if not wheels_on:
