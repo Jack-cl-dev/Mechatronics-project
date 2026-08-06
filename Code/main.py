@@ -8,10 +8,10 @@ import utime
 # - Important commands -
 # Every module imported below has to be on the device, not just main.py, so use
 # the deploy script from the repo root rather than copying one file:
-#   Linux:    ./deploy.sh
+#   Linux: ./deploy.sh
 #   Windows:  double-click deploy.bat and pick option 1
 # To test obstacle avoidance on its own (no line following, no clap switch):
-#   Linux:    ./deploy.sh test_avoidance.py
+#   Linux: /deploy.sh test_avoidance.py
 #   Windows:  double-click deploy.bat and pick option 2
 
 robot = Maqueen()

@@ -1,16 +1,3 @@
-# Standalone test rig for obstacle detection + avoidance.
-#
-# Deliberately does NOT run the line follower or the clap switch, so a failed
-# avoidance manoeuvre can't be blamed on either of those.
-#
-# Deploy it with (either way it lands on the board AS main.py, because that's
-# the only name the micro:bit auto-runs):
-#   Linux:    ./deploy.sh test_avoidance.py
-#   Windows:  double-click deploy.bat, then pick option 2
-#
-# Controls:  A = start/resume driving (3s countdown)   B = stop
-# The serial console prints what the avoidance routine is deciding.
-
 from microbit import *
 from maqueen import Maqueen
 from obstacle_detect import ObstacleDetector
