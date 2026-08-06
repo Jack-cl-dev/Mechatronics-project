@@ -3,6 +3,7 @@ from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
 from headlights import Headlights
+from statuslights import StatusLights
 import utime
 
 # - Important commands -
@@ -13,6 +14,7 @@ robot = Maqueen()
 sound_switch = SoundSwitch()
 detector = ObstacleDetector(robot, stop_distance=10)
 headlights = Headlights(robot)
+lights = StatusLights(robot)
 
 # --- HARDWARE POLARITY ---
 #   1 = WHITE surface (off the line)
@@ -39,6 +41,7 @@ STAGE2_MS     = 1200
 
 last_side = 1
 lost_since = None
+prev_wheels_on = False
 
 last_display_ms = utime.ticks_ms()
 DISPLAY_EVERY_MS = 200
@@ -54,18 +57,25 @@ while True:
 
     wheels_on = sound_switch.update()
 
+    if wheels_on != prev_wheels_on:
+        lights.flash_clap()
+    prev_wheels_on = wheels_on
+
     if not wheels_on:
         drive(0, FWD, 0, FWD)
         lost_since = None
+        lights.update(wheels_on, False)
         utime.sleep_ms(40)
         continue
 
     if detector.check():
+        lights.update(wheels_on, True)
         detector.react()
         continue
 
     left = on_line_left()
     right = on_line_right()
+    turning = None
 
     if left == 1 and right == 1:
         drive(BASE_SPEED, FWD, BASE_SPEED, FWD)
@@ -73,11 +83,13 @@ while True:
 
     elif left == 1 and right == 0:
         last_side = 1
+        turning = "left"
         drive(CORRECT_INNER, FWD, CORRECT_OUTER, FWD)
         lost_since = None
 
     elif left == 0 and right == 1:
         last_side = -1
+        turning = "right"
         drive(CORRECT_OUTER, FWD, CORRECT_INNER, FWD)
         lost_since = None
 
@@ -89,21 +101,29 @@ while True:
 
         if lost_for < STAGE1_MS:
             if last_side >= 0:
+                turning = "left"
                 drive(PIVOT_INNER, FWD, PIVOT_OUTER, FWD)
             else:
+                turning = "right"
                 drive(PIVOT_OUTER, FWD, PIVOT_INNER, FWD)
 
         elif lost_for < STAGE2_MS:
             if last_side >= 0:
+                turning = "left"
                 drive(PIVOT_INNER, BWD, PIVOT_OUTER, FWD)
             else:
+                turning = "right"
                 drive(PIVOT_OUTER, FWD, PIVOT_INNER, BWD)
 
         else:
             if last_side >= 0:
+                turning = "left"
                 drive(SWEEP_SPEED, BWD, SWEEP_SPEED, FWD)
             else:
+                turning = "right"
                 drive(SWEEP_SPEED, FWD, SWEEP_SPEED, BWD)
+
+    lights.update(wheels_on, False, turning)
 
     now = utime.ticks_ms()
     if utime.ticks_diff(now, last_display_ms) >= DISPLAY_EVERY_MS:
