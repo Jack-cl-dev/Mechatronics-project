@@ -1,4 +1,5 @@
 import utime
+from logger import log
 
 TURN_SPEED = 70
 FWD = 0
@@ -11,6 +12,12 @@ TIMED_TURN_MS_PER_90 = 700
 HEADING_TOL_DEG = 12
 POLL_MS = 20
 
+def _heading(self):
+    if not self.use_compass:
+        return None
+    h = self.compass.upright_heading()
+    log.log("heading", h)
+    return h
 
 class TurnMixin:
     """Closed-loop (compass) and open-loop (timed) pivoting.
@@ -56,6 +63,13 @@ class TurnMixin:
         if current is None:
             self._timed_turn(fallback_delta)
             return False
+        elif (not self._flipped
+              and bursts >= FLIP_CHECK_BURSTS
+              and abs(error) >= start_abs_error):
+            self.turn_sign = -self.turn_sign
+            self._flipped = True
+            log.log("flip", "err={:.1f} start_err={:.1f}".format(abs(error), start_abs_error))
+            self._log("no progress, flipping turn sense")
 
         start = utime.ticks_ms()
         start_abs_error = None

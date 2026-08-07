@@ -1,6 +1,7 @@
 from microbit import *
 import neopixel
 import utime
+from logger import log
 
 class Maqueen:
 
@@ -40,6 +41,7 @@ class Maqueen:
         buf[0] = 0x00
         buf[1] = direction
         buf[2] = speed
+        i2c.write(0x10, buf)
 
     def motor_right(self, speed=0, direction=0):
         buf = bytearray(3)
@@ -75,37 +77,45 @@ class Maqueen:
         buf[1] = angle
         i2c.write(0x10, buf)
 
+    _last_trigger = 0
+
 
     def ultrasound_measure(self):
+        MAX_ECHO_WAIT_US = 5000
+        RETRIGGER_GAP_US = 60000
+        # Never start a new ping while the last echo might still be in
+        # flight -- this is what was producing garbage/false-close readings.
+        since_last = utime.ticks_diff(utime.ticks_us(), self._last_trigger)
+        if since_last < RETRIGGER_GAP_US:
+            utime.sleep_us(RETRIGGER_GAP_US - since_last)
+
+        # Drain any stale HIGH left on the echo pin before we trigger again.
+        drain_start = utime.ticks_us()
+        while pin2.read_digital() == 1:
+            if utime.ticks_diff(utime.ticks_us(), drain_start) > MAX_ECHO_WAIT_US:
+                break
+
         pin1.write_digital(1)
         utime.sleep_us(10)
         pin1.write_digital(0)
+        self._last_trigger = utime.ticks_us()
 
-
-        timeout = utime.ticks_us()
-        while True:
-            pulseBegin = utime.ticks_us()
-            if 1 == pin2.read_digital():
-                break
-            if (pulseBegin-timeout) > 5000:
+        start = utime.ticks_us()
+        while pin2.read_digital() == 0:
+            if utime.ticks_diff(utime.ticks_us(), start) > MAX_ECHO_WAIT_US:
+                log.log("us_raw", -1)
                 return -1
+        pulse_begin = utime.ticks_us()
 
-
-        while True:
-            pulseEnd = utime.ticks_us()
-            if 0 == pin2.read_digital():
-                break
-            if (pulseEnd-pulseBegin) > 5000:
+        while pin2.read_digital() == 1:
+            if utime.ticks_diff(utime.ticks_us(), pulse_begin) > MAX_ECHO_WAIT_US:
+                log.log("us_raw", -2)
                 return -2
+        pulse_end = utime.ticks_us()
 
-        x = pulseEnd - pulseBegin
-
-        d = x / 58
-        return int(d)
-
-
-
-
+        d = int(utime.ticks_diff(pulse_end, pulse_begin) / 58)
+        log.log("us_raw", d)
+        return d
 
 
 
