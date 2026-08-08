@@ -2,7 +2,6 @@ from microbit import *
 from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
-from compass import Compass
 import utime
 
 # - Important commands -
@@ -31,11 +30,6 @@ def on_line_right():
 
 def line_seen():
     return on_line_left() == 1 or on_line_right() == 1
-
-# Obstacle avoidance steers by compass heading, so get the tilt-to-fill
-# calibration out of the way here rather than halfway through a manoeuvre.
-# Hold the robot away from the motors while calibrating -- they're magnets.
-Compass().ensure_calibrated()
 
 detector = ObstacleDetector(robot, stop_distance=10, line_seen=line_seen)
 
