@@ -2,6 +2,7 @@ from microbit import *
 from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
+from radio_recieve import SpeedControl
 import utime
 
 # - Important commands -
@@ -32,6 +33,7 @@ def line_seen():
     return on_line_left() == 1 or on_line_right() == 1
 
 detector = ObstacleDetector(robot, stop_distance=10, line_seen=line_seen)
+speed_control = SpeedControl()  # listens for '+'/'-' over radio, non-blocking
 
 # Direction constants
 FWD = 0      # direction bit for forward
@@ -62,10 +64,12 @@ GRAVITY = 1000           # ~1000 mg is always present from gravity
 
 
 def drive(l_speed, l_dir, r_speed, r_dir):
-    robot.motor_left(l_speed, l_dir)
-    robot.motor_right(r_speed, r_dir)
+    scale = speed_control.multiplier
+    robot.motor_left(min(255, int(l_speed * scale)), l_dir)
+    robot.motor_right(min(255, int(r_speed * scale)), r_dir)
 
 while True:
+    speed_control.update()  # non-blocking -- picks up a pending '+'/'-' if any
     motors_running = sound_switch.state
     # react() blocks, so horn_active is never True by the time we get here --
     # is_noisy() covers the settling period after it instead.
