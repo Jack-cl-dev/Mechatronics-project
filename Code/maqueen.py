@@ -36,19 +36,41 @@ class Maqueen:
         self.np.show()
 
 
+    def _i2c_write(self, buf, attempts=12, retry_delay_ms=45):
+        """Write to the motor driver, retrying on a transient ack failure
+        (OSError ENODEV) before giving up.
+        """
+        start = utime.ticks_ms()
+        last_error = None
+        for attempt in range(attempts):
+            try:
+                i2c.write(0x10, buf)
+                if attempt > 0:
+                    log.log("i2c_retry_ok", "{} attempts, {}ms".format(
+                        attempt + 1, utime.ticks_diff(utime.ticks_ms(), start)))
+                return
+            except OSError as e:
+                last_error = e
+                utime.sleep_ms(retry_delay_ms)
+        log.log("i2c_retry_fail", "{} attempts, {}ms".format(
+            attempts, utime.ticks_diff(utime.ticks_ms(), start)))
+        raise last_error
+    #I have learned just how much I hate working with hardware. The motors just fail, inexplicable.
+    #If it's not the batteries, we have a problem.
+
     def motor_left(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x00
         buf[1] = direction
         buf[2] = speed
-        i2c.write(0x10, buf)
+        self._i2c_write(buf)
 
     def motor_right(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x02
         buf[1] = direction
         buf[2] = speed
-        i2c.write(0x10, buf)
+        self._i2c_write(buf)
 
 
     def line_left(self):
@@ -116,7 +138,3 @@ class Maqueen:
         d = int(utime.ticks_diff(pulse_end, pulse_begin) / 58)
         log.log("us_raw", d)
         return d
-
-
-
-
