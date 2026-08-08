@@ -1,0 +1,5 @@
+##6/08/26
+
+Got/fixed headlights, they are a little janky and unreliable so i thinkk i might decrease the margin for light maybe?? im not really sure whats causing it to be so unreliable at the moment.
+
+I have also gotten 10. done, deciding to make the rgb lights underneath as the custom function. However doing so, the sound_detection has been flunked and sometimes turns itself off. 
