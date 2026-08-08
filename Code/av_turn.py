@@ -3,7 +3,7 @@ import utime
 TURN_SPEED = 70
 FWD = 0
 BWD = 1
-MS_PER_90 = 700  #spin time for a 90 degree turn
+MS_PER_90 = 350  #spin time for a 90 degree turn
 POLL_MS = 20
 
 
