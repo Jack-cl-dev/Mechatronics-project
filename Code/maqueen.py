@@ -36,9 +36,16 @@ class Maqueen:
         self.np.show()
 
 
-    def _i2c_write(self, buf, attempts=12, retry_delay_ms=45):
+    def _i2c_write(self, buf, attempts=6, retry_delay_ms=25):
         """Write to the motor driver, retrying on a transient ack failure
-        (OSError ENODEV) before giving up.
+        (OSError ENODEV) before giving up for real.
+
+        Logs how many attempts it took / how long the fault lasted, so a
+        recurring failure here is diagnostic evidence, not just noise --
+        a fault that clears within 1-2 attempts is a brief current-spike
+        blip; one that burns through most/all attempts points at a
+        longer outage (battery sag under sustained load, or a marginal
+        connection), not a momentary glitch.
         """
         start = utime.ticks_ms()
         last_error = None
@@ -55,8 +62,6 @@ class Maqueen:
         log.log("i2c_retry_fail", "{} attempts, {}ms".format(
             attempts, utime.ticks_diff(utime.ticks_ms(), start)))
         raise last_error
-    #I have learned just how much I hate working with hardware. The motors just fail, inexplicable.
-    #If it's not the batteries, we have a problem.
 
     def motor_left(self, speed=0, direction=0):
         buf = bytearray(3)
@@ -100,16 +105,20 @@ class Maqueen:
         i2c.write(0x10, buf)
 
     _last_trigger = 0
-
+    _last_distance = -1
 
     def ultrasound_measure(self):
         MAX_ECHO_WAIT_US = 5000
         RETRIGGER_GAP_US = 60000
-        # Never start a new ping while the last echo might still be in
-        # flight -- this is what was producing garbage/false-close readings.
+        # Too soon to ping again safely -- rather than blocking the caller
+        # until the sensor settles, hand back the last real reading. The
+        # sensor's physical settle time was always the ceiling on how
+        # often we get FRESH data; this just stops that ceiling from also
+        # stalling the caller's own loop (main.py's line-following loop
+        # calls this every ~5ms, far faster than the sensor can refresh).
         since_last = utime.ticks_diff(utime.ticks_us(), self._last_trigger)
         if since_last < RETRIGGER_GAP_US:
-            utime.sleep_us(RETRIGGER_GAP_US - since_last)
+            return self._last_distance
 
         # Drain any stale HIGH left on the echo pin before we trigger again.
         drain_start = utime.ticks_us()
@@ -126,15 +135,18 @@ class Maqueen:
         while pin2.read_digital() == 0:
             if utime.ticks_diff(utime.ticks_us(), start) > MAX_ECHO_WAIT_US:
                 log.log("us_raw", -1)
+                self._last_distance = -1
                 return -1
         pulse_begin = utime.ticks_us()
 
         while pin2.read_digital() == 1:
             if utime.ticks_diff(utime.ticks_us(), pulse_begin) > MAX_ECHO_WAIT_US:
                 log.log("us_raw", -2)
+                self._last_distance = -2
                 return -2
         pulse_end = utime.ticks_us()
 
         d = int(utime.ticks_diff(pulse_end, pulse_begin) / 58)
         log.log("us_raw", d)
+        self._last_distance = d
         return d
