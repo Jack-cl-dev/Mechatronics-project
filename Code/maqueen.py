@@ -1,28 +1,7 @@
-# MIT License
-
-# Copyright (c) 2021 Kristoffer Holm
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
 from microbit import *
 import neopixel
 import utime
+from logger import log
 
 class Maqueen:
 
@@ -31,122 +10,143 @@ class Maqueen:
         self.np = neopixel.NeoPixel(pin15, 4)
         pin1.write_digital(0)
 
-    # value: {0,1}
+
     def led_left(self, value):
         pin8.write_digital(value)
 
-    # value: {0,1}
     def led_right(self, value):
         pin12.write_digital(value)
 
-    # red: {0-255}
-    # green: {0-255}
-    # blue: {0-255}
+
     def rgb_front_left(self, red, green, blue):
         self.np[0] = (red, green, blue)
         self.np.show()
 
-    # red: {0-255}
-    # green: {0-255}
-    # blue: {0-255}
     def rgb_rear_left(self, red, green, blue):
         self.np[1] = (red, green, blue)
         self.np.show()
 
-    # red: {0-255}
-    # green: {0-255}
-    # blue: {0-255}
+
     def rgb_rear_right(self, red, green, blue):
         self.np[2] = (red, green, blue)
         self.np.show()
 
-    # red: {0-255}
-    # green: {0-255}
-    # blue: {0-255}
     def rgb_front_right(self, red, green, blue):
         self.np[3] = (red, green, blue)
         self.np.show()
 
-    # speed: {0-255}
-    # direction: {0,1}
+
+    def _i2c_write(self, buf, attempts=6, retry_delay_ms=25):
+        """Write to the motor driver, retrying on a transient ack failure
+        (OSError ENODEV) before giving up for real.
+
+        Logs how many attempts it took / how long the fault lasted, so a
+        recurring failure here is diagnostic evidence, not just noise --
+        a fault that clears within 1-2 attempts is a brief current-spike
+        blip; one that burns through most/all attempts points at a
+        longer outage (battery sag under sustained load, or a marginal
+        connection), not a momentary glitch.
+        """
+        start = utime.ticks_ms()
+        last_error = None
+        for attempt in range(attempts):
+            try:
+                i2c.write(0x10, buf)
+                if attempt > 0:
+                    log.log("i2c_retry_ok", "{} attempts, {}ms".format(
+                        attempt + 1, utime.ticks_diff(utime.ticks_ms(), start)))
+                return
+            except OSError as e:
+                last_error = e
+                utime.sleep_ms(retry_delay_ms)
+        log.log("i2c_retry_fail", "{} attempts, {}ms".format(
+            attempts, utime.ticks_diff(utime.ticks_ms(), start)))
+        raise last_error
+
     def motor_left(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x00
         buf[1] = direction
         buf[2] = speed
-        i2c.write(0x10, buf)
+        self._i2c_write(buf)
 
-    # speed: {0-255}
-    # direction: {0,1}
     def motor_right(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x02
         buf[1] = direction
         buf[2] = speed
-        i2c.write(0x10, buf)
+        self._i2c_write(buf)
 
-    # return: {0,1}
+
     def line_left(self):
         if pin13.read_digital():
             return 1
         else:
             return 0
 
-    # return: {0,1}
+
     def line_right(self):
         if pin14.read_digital():
             return 1
         else:
             return 0
 
-    # angle: {0-180}
     def servo_one(self, angle=0):
         buf = bytearray(2)
         buf[0] = 0x14
         buf[1] = angle
         i2c.write(0x10, buf)
 
-    # angle: {0-180}
+
     def servo_two(self, angle=0):
         buf = bytearray(2)
         buf[0] = 0x15
         buf[1] = angle
         i2c.write(0x10, buf)
 
-    # return: distance in cm
+    _last_trigger = 0
+    _last_distance = -1
+
     def ultrasound_measure(self):
+        MAX_ECHO_WAIT_US = 5000
+        RETRIGGER_GAP_US = 60000
+        # Too soon to ping again safely -- rather than blocking the caller
+        # until the sensor settles, hand back the last real reading. The
+        # sensor's physical settle time was always the ceiling on how
+        # often we get FRESH data; this just stops that ceiling from also
+        # stalling the caller's own loop (main.py's line-following loop
+        # calls this every ~5ms, far faster than the sensor can refresh).
+        since_last = utime.ticks_diff(utime.ticks_us(), self._last_trigger)
+        if since_last < RETRIGGER_GAP_US:
+            return self._last_distance
+
+        # Drain any stale HIGH left on the echo pin before we trigger again.
+        drain_start = utime.ticks_us()
+        while pin2.read_digital() == 1:
+            if utime.ticks_diff(utime.ticks_us(), drain_start) > MAX_ECHO_WAIT_US:
+                break
+
         pin1.write_digital(1)
         utime.sleep_us(10)
         pin1.write_digital(0)
+        self._last_trigger = utime.ticks_us()
 
-        # wait for echo pin to become high
-        timeout = utime.ticks_us()
-        while True:
-            pulseBegin = utime.ticks_us()
-            if 1 == pin2.read_digital():
-                break
-            if (pulseBegin-timeout) > 5000:
+        start = utime.ticks_us()
+        while pin2.read_digital() == 0:
+            if utime.ticks_diff(utime.ticks_us(), start) > MAX_ECHO_WAIT_US:
+                log.log("us_raw", -1)
+                self._last_distance = -1
                 return -1
-        # measure time until echo pin become low
+        pulse_begin = utime.ticks_us()
 
-        while True:
-            pulseEnd = utime.ticks_us()
-            if 0 == pin2.read_digital():
-                break
-            if (pulseEnd-pulseBegin) > 5000:
+        while pin2.read_digital() == 1:
+            if utime.ticks_diff(utime.ticks_us(), pulse_begin) > MAX_ECHO_WAIT_US:
+                log.log("us_raw", -2)
+                self._last_distance = -2
                 return -2
-        # Time = Width of Echo pulse in us
-        x = pulseEnd - pulseBegin
-        # Distance in cm = Time / 58
-        d = x / 58
-        return int(d)
+        pulse_end = utime.ticks_us()
 
-# robot = Maqueen()
-
-
-
-
-
-
-
-
+        d = int(utime.ticks_diff(pulse_end, pulse_begin) / 58)
+        log.log("us_raw", d)
+        self._last_distance = d
+        return d
