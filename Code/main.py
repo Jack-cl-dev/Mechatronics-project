@@ -2,6 +2,8 @@ from microbit import *
 from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
+from headlights import Headlights
+from statuslights import StatusLights
 from radio_recieve import SpeedControl
 import utime
 
@@ -16,6 +18,9 @@ import utime
 
 robot = Maqueen()
 sound_switch = SoundSwitch()
+detector = ObstacleDetector(robot, stop_distance=10)
+headlights = Headlights(robot)
+lights = StatusLights(robot)
 
 # --- HARDWARE POLARITY ---
 # On this robot the line sensors read:
@@ -56,6 +61,7 @@ STAGE2_MS     = 1200  # sharper in-place pivot (abrupt bends)
 last_side = 1
 # Timestamp of when we first lost the line (None => currently on it).
 lost_since = None
+prev_wheels_on = False
 
 # --- Motion display (accelerometer) ---
 last_display_ms = utime.ticks_ms()
@@ -74,19 +80,31 @@ while True:
     # react() blocks, so horn_active is never True by the time we get here --
     # is_noisy() covers the settling period after it instead.
     wheels_on = sound_switch.update(motors_running, detector.is_noisy())
+    headlights.update()
+
+    wheels_on = sound_switch.update()
+
+    if wheels_on != prev_wheels_on:
+        lights.flash_clap()
+    prev_wheels_on = wheels_on
 
     if not wheels_on:
+        drive(0, FWD, 0, FWD)
+        lost_since = None
+        lights.update(wheels_on, False)
         robot.motor_left(0, 0)
         robot.motor_right(0, 0)
         utime.sleep_ms(40)
         continue
 
     if detector.check():
+        lights.update(wheels_on, True)
         detector.react()
         continue
 
     left = on_line_left()      # 1 = on the line, 0 = off the line
     right = on_line_right()
+    turning = None
 
     if left == 1 and right == 1:
         # Centred on the line -> drive straight and reset the lost timer.
@@ -97,12 +115,14 @@ while True:
         # Line under the LEFT sensor -> curve left. Both wheels forward
         # for a smooth, stable correction.
         last_side = 1
+        turning = "left"
         drive(CORRECT_INNER, FWD, CORRECT_OUTER, FWD)
         lost_since = None
 
     elif left == 0 and right == 1:
         # Line under the RIGHT sensor -> curve right.
         last_side = -1
+        turning = "right"
         drive(CORRECT_OUTER, FWD, CORRECT_INNER, FWD)
         lost_since = None
 
@@ -115,28 +135,38 @@ while True:
         lost_for = utime.ticks_diff(utime.ticks_ms(), lost_since)
 
         if lost_for < STAGE1_MS:
+            if last_side >= 0:
+                turning = "left"
             # Stage 1: gentle CURVED search - keep creeping forward while
             # turning toward the last-seen side. On a curved track the line
             # is usually just ahead and to one side, so this re-acquires it
             # smoothly without whipping past it.
             if last_side >= 0:   # line was on the left -> curve left
                 drive(PIVOT_INNER, FWD, PIVOT_OUTER, FWD)
+            else:
+                turning = "right"
             else:                # line was on the right -> curve right
                 drive(PIVOT_OUTER, FWD, PIVOT_INNER, FWD)
 
         elif lost_for < STAGE2_MS:
             # Stage 2: sharper in-place pivot for genuinely abrupt bends.
             if last_side >= 0:
+                turning = "left"
                 drive(PIVOT_INNER, BWD, PIVOT_OUTER, FWD)
             else:
+                turning = "right"
                 drive(PIVOT_OUTER, FWD, PIVOT_INNER, BWD)
 
         else:
             # Stage 3: full rotational sweep in the last-known direction,
             if last_side >= 0:
+                turning = "left"
                 drive(SWEEP_SPEED, BWD, SWEEP_SPEED, FWD)
             else:
+                turning = "right"
                 drive(SWEEP_SPEED, FWD, SWEEP_SPEED, BWD)
+
+    lights.update(wheels_on, False, turning)
 
     # --- Update the speed/motion display (throttled, never blocks driving) ---
     now = utime.ticks_ms()

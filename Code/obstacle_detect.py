@@ -1,6 +1,7 @@
 from microbit import *
 import utime
 import audio
+import audio
 from object_avoidance import ObjectAvoidance
 
 # The mic keeps hearing the horn (and its own motors) for a moment after the
@@ -28,20 +29,43 @@ class ObstacleDetector:
     def check(self):
         distance = self.robot.ultrasound_measure()
 
+class ObstacleDetector:
+    def __init__(self, robot, stop_distance=10):
+        self.robot = robot
+        self.stop_distance = stop_distance
+        self.horn_duration = 2000
+        self.horn_active = False
+        self.close_streak = 0
+        self.confirm_needed = 3   # readings in a row before we trust it
         if distance <= 0 or distance > self.stop_distance:
             self.close_streak = 0
             return False
 
+    def check(self):
+        distance = self.robot.ultrasound_measure()
         self.close_streak += 1
         return self.close_streak >= self.confirm_needed
 
+        if distance <= 0 or distance > self.stop_distance:
+            self.close_streak = 0
+            return False
     def is_noisy(self):
         """True while our own horn/manoeuvre noise makes the mic untrustworthy."""
         return utime.ticks_diff(self.noisy_until, utime.ticks_ms()) > 0
 
+        self.close_streak += 1
+        return self.close_streak >= self.confirm_needed
     def react(self):
         """Sound the horn, then drive around the obstacle.
 
+    def react(self):
+        self.horn_active = True
+        self.robot.motor_left(0, 0)
+        self.robot.motor_right(0, 0)
+        audio.play(Sound.SAD)
+        utime.sleep_ms(self.horn_duration)
+        self.horn_active = False
+        self.close_streak = 0
         Blocking, but every stage inside is time-bounded. Returns the avoidance
         result string ("line", "clear" or "reversed").
         """
