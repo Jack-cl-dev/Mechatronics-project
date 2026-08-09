@@ -3,7 +3,6 @@ from maqueen import Maqueen
 from sound_detect import SoundSwitch
 from obstacle_detect import ObstacleDetector
 from headlights import Headlights
-from statuslights import StatusLights
 from radio_recieve import SpeedControl
 import utime
 
@@ -19,7 +18,7 @@ import utime
 robot = Maqueen()
 sound_switch = SoundSwitch()
 headlights = Headlights(robot)
-lights = StatusLights(robot)
+
 
 # --- HARDWARE POLARITY ---
 # On this robot the line sensors read:
@@ -82,18 +81,18 @@ while True:
     headlights.update()
 
     if wheels_on != prev_wheels_on:
-        lights.flash_clap()
-    prev_wheels_on = wheels_on
+
+        prev_wheels_on = wheels_on
 
     if not wheels_on:
         drive(0, FWD, 0, FWD)
         lost_since = None
-        lights.update(wheels_on, False)
+
         utime.sleep_ms(40)
         continue
 
     if detector.check():
-        lights.update(wheels_on, True)
+
         detector.react()
         continue
 
@@ -159,7 +158,7 @@ while True:
                 turning = "right"
                 drive(SWEEP_SPEED, FWD, SWEEP_SPEED, BWD)
 
-    lights.update(wheels_on, False, turning)
+
 
     # --- Update the speed/motion display (throttled, never blocks driving) ---
     now = utime.ticks_ms()
