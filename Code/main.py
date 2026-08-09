@@ -18,7 +18,6 @@ import utime
 
 robot = Maqueen()
 sound_switch = SoundSwitch()
-detector = ObstacleDetector(robot, stop_distance=10)
 headlights = Headlights(robot)
 lights = StatusLights(robot)
 
@@ -82,8 +81,6 @@ while True:
     wheels_on = sound_switch.update(motors_running, detector.is_noisy())
     headlights.update()
 
-    wheels_on = sound_switch.update()
-
     if wheels_on != prev_wheels_on:
         lights.flash_clap()
     prev_wheels_on = wheels_on
@@ -92,8 +89,6 @@ while True:
         drive(0, FWD, 0, FWD)
         lost_since = None
         lights.update(wheels_on, False)
-        robot.motor_left(0, 0)
-        robot.motor_right(0, 0)
         utime.sleep_ms(40)
         continue
 
@@ -135,17 +130,15 @@ while True:
         lost_for = utime.ticks_diff(utime.ticks_ms(), lost_since)
 
         if lost_for < STAGE1_MS:
-            if last_side >= 0:
-                turning = "left"
             # Stage 1: gentle CURVED search - keep creeping forward while
             # turning toward the last-seen side. On a curved track the line
             # is usually just ahead and to one side, so this re-acquires it
             # smoothly without whipping past it.
             if last_side >= 0:   # line was on the left -> curve left
+                turning = "left"
                 drive(PIVOT_INNER, FWD, PIVOT_OUTER, FWD)
-            else:
+            else:                 # line was on the right -> curve right
                 turning = "right"
-            else:                # line was on the right -> curve right
                 drive(PIVOT_OUTER, FWD, PIVOT_INNER, FWD)
 
         elif lost_for < STAGE2_MS:
