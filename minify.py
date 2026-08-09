@@ -32,26 +32,67 @@ def strip_docstrings(tree):
     return tree
 
 
-def tabify(source):
-    """ast.unparse() emits uniform 4-space indents, so this is a safe,
-    mechanical swap: each level of 4 leading spaces becomes one tab."""
-    out_lines = []
-    for line in source.splitlines():
-        stripped = line.lstrip(" ")
-        n_spaces = len(line) - len(stripped)
-        if n_spaces and stripped:
-            level = n_spaces // 4
-            out_lines.append("\t" * level + stripped)
-        else:
-            out_lines.append(line)
-    return "\n".join(out_lines) + "\n"
+def lexical_minify(source):
+    """Aggressively remove comments and unnecessary whitespace.
+
+    tokenize protects strings, so spaces inside string literals are preserved.
+    """
+    import io
+    import tokenize
+
+    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    out = []
+    prev = None
+
+    for tok in tokens:
+        typ, text = tok.type, tok.string
+
+        if typ in (tokenize.ENCODING, tokenize.ENDMARKER, tokenize.NL):
+            continue
+        if typ == tokenize.COMMENT:
+            continue
+        if typ == tokenize.INDENT:
+            # MicroPython accepts tabs and they are smaller than 4 spaces.
+            out.append("\t" * max(1, len(text) // 4))
+            prev = tok
+            continue
+        if typ == tokenize.DEDENT:
+            prev = tok
+            continue
+        if typ == tokenize.NEWLINE:
+            out.append("\n")
+            prev = tok
+            continue
+
+        # Python requires separation between adjacent names/numbers, but
+        # almost everything else can touch.
+        if prev is not None:
+            if ((prev.type in (tokenize.NAME, tokenize.NUMBER)
+                 and typ in (tokenize.NAME, tokenize.NUMBER))
+                    or (prev.string in ("+", "-", "~")
+                        and text in ("+", "-", "~"))
+                    or (prev.string == "/" and text == "/")
+                    or (prev.string == "*" and text == "*")):
+                out.append(" ")
+
+        out.append(text)
+        prev = tok
+
+    return "".join(out).rstrip() + "\n"
 
 
 def minify(path: Path) -> str:
     src = path.read_text(encoding="utf-8")
-    tree = ast.parse(src, filename=str(path))
-    tree = strip_docstrings(tree)
-    return tabify(ast.unparse(tree))
+    tree = strip_docstrings(ast.parse(src, filename=str(path)))
+
+    # ast.unparse() removes comments/docstrings and normalizes source.
+    # tokenize then removes the remaining unnecessary whitespace.
+    normalized = ast.unparse(tree)
+    result = lexical_minify(normalized)
+
+    # Safety check: never emit code that no longer parses.
+    ast.parse(result, filename=str(path))
+    return result
 
 
 def main():
