@@ -39,14 +39,14 @@ class Maqueen:
         buf[0] = 0x00
         buf[1] = direction
         buf[2] = speed
-        self._i2c_write(buf)
+
 
     def motor_right(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x02
         buf[1] = direction
         buf[2] = speed
-        self._i2c_write(buf)
+
 
 
     def line_left(self):
@@ -66,14 +66,14 @@ class Maqueen:
         buf = bytearray(2)
         buf[0] = 0x14
         buf[1] = angle
-        i2c.write(0x10, buf)
+
 
 
     def servo_two(self, angle=0):
         buf = bytearray(2)
         buf[0] = 0x15
         buf[1] = angle
-        i2c.write(0x10, buf)
+
 
     _last_trigger = 0
     _last_distance = -1
