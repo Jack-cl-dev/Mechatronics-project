@@ -1,191 +1,91 @@
 #!/usr/bin/env python3
-"""Conservative MicroPython source minifier.
+"""Shrinks .py files for micro:bit deployment.
 
-The optimiser is deliberately lexical: it does not parse or regenerate Python
-with CPython's AST, so it cannot introduce syntax from a newer Python version.
-It only removes things that are safe to remove without changing execution:
-comments, blank lines, standalone docstrings, and unnecessary whitespace.
-
-It does NOT rename identifiers, rewrite expressions, fold constants, merge
-statements, or otherwise alter program behaviour. Those transformations can
-save more bytes but are substantially less appropriate for a fragile
-micro:bit/MicroPython target.
+Strips comments, docstrings, and blank lines, and switches 4-space indents to
+single tabs. Output is still plain, valid .py source -- imported the normal
+way -- so there's no bytecode/version compatibility risk like mpy-cross has,
+because we can't have nice things.
 
 USAGE
-    python minify_microbit.py <src_dir> <out_dir>
-    python minify_microbit.py <src_dir> <out_dir> file1.py file2.py ...
-"""
+    python minify_for_microbit.py <src_dir> <out_dir>
+    python minify_for_microbit.py <src_dir> <out_dir> file1.py file2.py ...
 
-import io
+If no filenames are given, every *.py in src_dir is processed. Files that
+fail to parse (syntax errors) are skipped and reported.
+
+This can be run manually, though any sane person would run the script.
+"""
+import ast
 import sys
-import tokenize
 from pathlib import Path
 
 
-def _is_docstring(tokens, i):
-    """Return True when tokens[i] is a standalone first-statement string.
-
-    We recognise only the unambiguous cases:
-      * module start
-      * immediately after INDENT
-      * immediately after a NEWLINE which follows a suite-opening ':'
-
-    This intentionally avoids trying to understand arbitrary Python syntax.
-    """
-    if tokens[i].type != tokenize.STRING:
-        return False
-
-    j = i - 1
-
-    # Ignore an INDENT immediately before the string.
-    if j >= 0 and tokens[j].type == tokenize.INDENT:
-        j -= 1
-
-    # A module/function/class docstring is the first real token of its suite.
-    if j < 0:
-        return True
-
-    if tokens[j].type == tokenize.NEWLINE:
-        # Walk backwards over harmless structural tokens to find the ':' that
-        # opened this suite. This is deliberately conservative.
-        k = j - 1
-        depth = 0
-        while k >= 0:
-            t = tokens[k]
-            if t.type == tokenize.OP:
-                if t.string in (")", "]", "}"):
-                    depth += 1
-                elif t.string in ("(", "[", "{"):
-                    if depth:
-                        depth -= 1
-                    else:
-                        break
-                elif t.string == ":" and depth == 0:
-                    return True
-                elif t.string == ";":
-                    break
-            elif t.type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT):
-                if t.type == tokenize.NEWLINE:
-                    break
-            k -= 1
-
-    return False
+def strip_docstrings(tree):
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+            if (node.body and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                node.body.pop(0)
+                if not node.body:
+                    node.body.append(ast.Pass())
+    return tree
 
 
-def lexical_minify(source):
-    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-
-    out = []
-    prev = None
-    skip_docstring = False
-
-    for i, tok in enumerate(tokens):
-        typ, text = tok.type, tok.string
-
-        # These tokens have no runtime meaning in the source file.
-        if typ in (tokenize.ENCODING, tokenize.ENDMARKER, tokenize.NL):
-            continue
-
-        # Comments, including shebangs and encoding declarations, are safe.
-        if typ == tokenize.COMMENT:
-            continue
-
-        # Standalone module/function/class docstrings are not needed for
-        # execution. Only remove an unambiguously first string statement.
-        if typ == tokenize.STRING and _is_docstring(tokens, i):
-            skip_docstring = True
-            continue
-
-        if typ == tokenize.INDENT:
-            # Preserve indentation levels but use one tab per source nesting
-            # level. This is safe for normal 4-space Python source and also
-            # handles 2/8-space indentation without silently dropping a level.
-            spaces = len(text.expandtabs(8))
-            out.append("\t" * max(1, spaces // 4))
-            prev = tok
-            continue
-
-        if typ == tokenize.DEDENT:
-            prev = tok
-            continue
-
-        if typ == tokenize.NEWLINE:
-            # A removed docstring may leave an empty suite line; preserve the
-            # newline because it may terminate the surrounding statement.
-            out.append("\n")
-            prev = tok
-            skip_docstring = False
-            continue
-
-        # Whitespace between tokens is needed only where removing it would
-        # change tokenisation. In particular, keep NAME/NUMBER boundaries and
-        # operator pairs such as + +, - -, ** and //.
-        if prev is not None:
-            need_space = (
-                (prev.type in (tokenize.NAME, tokenize.NUMBER)
-                 and typ in (tokenize.NAME, tokenize.NUMBER))
-                or (prev.string in ("+", "-", "~") and
-                    text in ("+", "-", "~"))
-                or (prev.string == "/" and text == "/")
-                or (prev.string == "*" and text == "*")
-            )
-            if need_space:
-                out.append(" ")
-
-        out.append(text)
-        prev = tok
-
-    # A final newline is not required by Python/MicroPython and costs a byte.
-    return "".join(out).rstrip()
+def tabify(source):
+    """ast.unparse() emits uniform 4-space indents, so this is a safe,
+    mechanical swap: each level of 4 leading spaces becomes one tab."""
+    out_lines = []
+    for line in source.splitlines():
+        stripped = line.lstrip(" ")
+        n_spaces = len(line) - len(stripped)
+        if n_spaces and stripped:
+            level = n_spaces // 4
+            out_lines.append("\t" * level + stripped)
+        else:
+            out_lines.append(line)
+    return "\n".join(out_lines) + "\n"
 
 
-def minify(path):
-    return lexical_minify(path.read_text(encoding="utf-8"))
+def minify(path: Path) -> str:
+    src = path.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(path))
+    tree = strip_docstrings(tree)
+    return tabify(ast.unparse(tree))
 
 
 def main():
     if len(sys.argv) < 3:
-        print("usage: python minify_microbit.py <src_dir> <out_dir> [files...]")
+        print("usage: minify_for_microbit.py <src_dir> <out_dir> [files...]")
         sys.exit(1)
-
-    src_dir = Path(sys.argv[1])
-    out_dir = Path(sys.argv[2])
+    src_dir, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
     out_dir.mkdir(parents=True, exist_ok=True)
-
     files = sys.argv[3:] or sorted(p.name for p in src_dir.glob("*.py"))
 
-    total_before = 0
-    total_after = 0
-
+    total_before = total_after = 0
     for name in files:
         src_path = src_dir / name
         if not src_path.exists():
             print(f"  skip (missing): {name}")
             continue
-
         before = src_path.stat().st_size
-
         try:
             new_src = minify(src_path)
-        except (SyntaxError, tokenize.TokenError) as e:
-            print(f"  skip (tokenise error): {name}: {e}")
+        except SyntaxError as e:
+            print(f"  skip (parse error): {name}: {e}")
             continue
-
         out_path = out_dir / name
-        out_path.write_text(new_src, encoding="utf-8", newline="")
-
+        out_path.write_text(new_src, encoding="utf-8")
         after = out_path.stat().st_size
         total_before += before
         total_after += after
-
-        pct = round(100 * after / before) if before else 0
+        pct = round(100 * after / before)
         print(f"  {name}: {before} -> {after} bytes ({pct}%)")
 
     print()
-    saved = total_before - total_after
-    pct = round(100 * total_after / total_before) if total_before else 0
     print(f"TOTAL: {total_before} -> {total_after} bytes "
-          f"(saved {saved} bytes, {pct}% of original)")
+          f"(saved {total_before - total_after} bytes, "
+          f"{round(100 * total_after / total_before)}% of original)")
 
 
 if __name__ == "__main__":
