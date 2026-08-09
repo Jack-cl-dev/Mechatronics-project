@@ -64,6 +64,9 @@ function Get-RepoRoot {
 
 function Invoke-Native {
     param([string]$Exe, [string[]]$Arguments, [switch]$Capture)
+    if (-not $Exe -or $Exe.Length -le 1) {
+        throw "Invoke-Native called with a suspicious executable name: '$Exe'"
+    }
     $ErrorActionPreference = "Continue"
     $global:LASTEXITCODE = 0
     if ($Capture) {
@@ -244,7 +247,8 @@ try {
 
     # --- 5. Find (or install) mpremote ----------------------------------
     Write-Step "Looking for mpremote..."
-    $mpremote = Find-Mpremote
+    $mpremoteRaw = Find-Mpremote
+    $mpremote = if ($null -eq $mpremoteRaw) { $null } else { @($mpremoteRaw) }
 
     if (-not $mpremote) {
         if (-not (Install-Mpremote)) {
@@ -254,7 +258,8 @@ try {
             )
         }
 
-        $mpremote = Find-Mpremote
+        $mpremoteRaw = Find-Mpremote
+        $mpremote = if ($null -eq $mpremoteRaw) { $null } else { @($mpremoteRaw) }
         if (-not $mpremote) {
             Stop-With "mpremote was installed, but Python still cannot import it." @(
                 "Close this window, open a new PowerShell window, and run deploy.ps1 again."
@@ -267,6 +272,20 @@ try {
     if ($mpremote.Count -gt 1) {
         $mpPre = $mpremote[1..($mpremote.Count - 1)]
     }
+
+    # Guard against the exact failure mode that caused this fix: if $mpExe
+    # is ever a lone character instead of a real executable name (e.g.
+    # "mpremote" silently collapsing to a scalar string and getting
+    # index-sliced into just 'm'), fail loudly here with a clear message
+    # instead of letting PowerShell's cryptic "term 'm' is not recognized"
+    # error surface three steps later with no context.
+    if (-not $mpExe -or $mpExe.Length -le 1) {
+        Stop-With "Internal error: resolved mpremote command looks wrong ('$mpExe')." @(
+            "This is a bug in deploy.ps1's mpremote detection, not your setup."
+            "Please report this along with the exact text above."
+        )
+    }
+
     Write-Good "Using: $($mpremote -join ' ')"
 
     function Invoke-Mpremote {
