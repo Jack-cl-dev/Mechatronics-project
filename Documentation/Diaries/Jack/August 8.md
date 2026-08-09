@@ -1,0 +1,10 @@
+Today was the day set aside to get object avoidance finally finished. To say it has not been worth the three marks would be an understatement. I am not at all proud of the result, however, it is the same result our ~~competition~~ valued friends in Seb and Kane's group got, and so is as far as I'm willing to go. 
+
+The problem is that the compass is not reliable. It can *barely* be depended on to tell you which way north is when it's laid flat, let alone when it's upright and we're running mathematics on the output to try and force it into a usable state. Suffice to say that didn't work, leaving the only option as for knowing which direction the bot is facing, to guess. I *estimate* (from video footage sent to me) that a 90° turn takes 350ms. If the battery discharges any further, that timing will change. If we replace them again it will change wildly. As a result I'm simply going to be quite liberal with my application of the term 'around'. It doesn't do a 180 and go the other direction like it did prior, so that will have to do. 
+
+I've been working on just object avoidance for about 5 days, which is mostly a result of the memory problem. The microbit has (from memory) 30kb of available space. That's not much. I had to have a script made just to cut the file size down. It cuts comments, whitespace, that sort of thing. Halves the size of the project, or thereabouts.  The other reason it took so long was relying on the compass logic for so long, only to eventually abandon it and re-write large portions of the code. 
+
+As with most things in this challenge of a task, we have both arms tied behind our back. 
+Still working over SSH, which is part of the reason I cannot be asked to look into the compass problem. 
+
+Anyhow, having 'solved' the issue of object avoidance, I wrote out a quick radio script (I did this in my downtime, waiting for Alexander to answer my messages to go plug/unplug/test/record the robot) and it worked first try. I then merged every branch, we'll see how that goes tomorrow, I'm tired. 

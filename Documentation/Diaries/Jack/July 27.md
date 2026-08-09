@@ -1,0 +1,3 @@
+I added a spedometer to the movement code today, to meet that requirement. I also wrote a complete overhaul to the movement code that I'll explain more in a later entry, probably when I merge it into main, because it's still quite highly WIP. I intend to give the robot multiple reaction states, to try and improve reliability, because basic line following seems to have a few issues on that front. 
+
+The speedometer uses the accelerator, approximates how fast that is relative to the norm, and adjusts the display accordingly. 

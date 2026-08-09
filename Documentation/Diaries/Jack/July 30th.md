@@ -1,0 +1,3 @@
+Merged Alexanders PR into main. He tells me it works, I didn't have time to test it though, so we'll see how that goes. 
+
+today was not particularly productive. I concede that I am writing this primary out of obligation to do so rather than any practical matter of documentation. Line following is functional, though I believe it could be better and will continue working on it. I have some ideas on object avoidance in the works, but none worth putting to paper, so to speak. At least not yet. 

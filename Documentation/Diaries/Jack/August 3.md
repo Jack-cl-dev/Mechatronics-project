@@ -1,0 +1,5 @@
+Today marks the day that the line following has been completed. I merged the branch today. Seeing as it's the crux of this entire project, I gave it quite a bit of attention. The complexity comes from applying scaling corrective measures, rather than resorting straight to an extreme correction. It's not 100% reliable, but it is far more reliable than when we were restoring to those extreme corrections. 
+
+Next up is object avoidance, which I foresee being quite a challenge. The plan is to use the compass to turn 90°, then run along the length of the object doing periodic checks with the sensor (by turning 90° again) to see if the object is still there. If it isn't, keep going, checking to see if the other side is there, and once we clear that, turn 90° again and find the line. We will see how that goes, I've been told that others experience with the compass has not been positive.  
+
+Alexander also messed up the sound detection pretty badly, so there are bugs in the main branch now. Fortunately that's his problem. 
