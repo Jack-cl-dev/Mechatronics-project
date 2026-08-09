@@ -1,7 +1,6 @@
 from microbit import *
 import neopixel
 import utime
-from logger import log
 
 class Maqueen:
 
@@ -34,34 +33,6 @@ class Maqueen:
     def rgb_front_right(self, red, green, blue):
         self.np[3] = (red, green, blue)
         self.np.show()
-
-
-    def _i2c_write(self, buf, attempts=6, retry_delay_ms=25):
-        """Write to the motor driver, retrying on a transient ack failure
-        (OSError ENODEV) before giving up for real.
-
-        Logs how many attempts it took / how long the fault lasted, so a
-        recurring failure here is diagnostic evidence, not just noise --
-        a fault that clears within 1-2 attempts is a brief current-spike
-        blip; one that burns through most/all attempts points at a
-        longer outage (battery sag under sustained load, or a marginal
-        connection), not a momentary glitch.
-        """
-        start = utime.ticks_ms()
-        last_error = None
-        for attempt in range(attempts):
-            try:
-                i2c.write(0x10, buf)
-                if attempt > 0:
-                    log.log("i2c_retry_ok", "{} attempts, {}ms".format(
-                        attempt + 1, utime.ticks_diff(utime.ticks_ms(), start)))
-                return
-            except OSError as e:
-                last_error = e
-                utime.sleep_ms(retry_delay_ms)
-        log.log("i2c_retry_fail", "{} attempts, {}ms".format(
-            attempts, utime.ticks_diff(utime.ticks_ms(), start)))
-        raise last_error
 
     def motor_left(self, speed=0, direction=0):
         buf = bytearray(3)
