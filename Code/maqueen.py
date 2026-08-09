@@ -34,19 +34,38 @@ class Maqueen:
         self.np[3] = (red, green, blue)
         self.np.show()
 
+    def _i2c_write(self, buf, attempts=6, retry_delay_ms=25):
+        """Write to the motor driver, retrying on a transient ack failure
+        (OSError ENODEV) before giving up for real.
+
+        Seen around motor start/stop/reverse -- the current spike from a
+        sudden direction change can brown the bus out for a moment. A
+        genuinely dead/stuck bus will still fail every attempt and raise,
+        same as before.
+        """
+        last_error = None
+        for _ in range(attempts):
+            try:
+                i2c.write(0x10, buf)
+                return
+            except OSError as e:
+                last_error = e
+                utime.sleep_ms(retry_delay_ms)
+        raise last_error
+
     def motor_left(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x00
         buf[1] = direction
         buf[2] = speed
-
+        self._i2c_write(buf)
 
     def motor_right(self, speed=0, direction=0):
         buf = bytearray(3)
         buf[0] = 0x02
         buf[1] = direction
         buf[2] = speed
-
+        self._i2c_write(buf)
 
 
     def line_left(self):
@@ -66,14 +85,13 @@ class Maqueen:
         buf = bytearray(2)
         buf[0] = 0x14
         buf[1] = angle
-
-
+        self._i2c_write(buf)
 
     def servo_two(self, angle=0):
         buf = bytearray(2)
         buf[0] = 0x15
         buf[1] = angle
-
+        self._i2c_write(buf)
 
     _last_trigger = 0
     _last_distance = -1
@@ -105,19 +123,16 @@ class Maqueen:
         start = utime.ticks_us()
         while pin2.read_digital() == 0:
             if utime.ticks_diff(utime.ticks_us(), start) > MAX_ECHO_WAIT_US:
-                log.log("us_raw", -1)
                 self._last_distance = -1
                 return -1
         pulse_begin = utime.ticks_us()
 
         while pin2.read_digital() == 1:
             if utime.ticks_diff(utime.ticks_us(), pulse_begin) > MAX_ECHO_WAIT_US:
-                log.log("us_raw", -2)
                 self._last_distance = -2
                 return -2
         pulse_end = utime.ticks_us()
 
         d = int(utime.ticks_diff(pulse_end, pulse_begin) / 58)
-        log.log("us_raw", d)
         self._last_distance = d
         return d
