@@ -1,10 +1,22 @@
 import utime
+
 TURN_SPEED = 70
 FWD = 0
 BWD = 1
-MS_PER_90 = 350
+MS_PER_90 = 350  #spin time for a 90 degree turn
 POLL_MS = 20
+
+
 class TurnMixin:
+    """Fixed-duration (dead-reckoning) pivoting -- no compass involved.
+
+    Every turn is timed, not closed-loop, so small errors can accumulate
+    turn over turn. Keeping the number of turns per manoeuvre low is the
+    mitigation for that, not correction -- see object_avoidance.py.
+
+    Host class must provide: self.robot, self._log(), self._stop().
+    """
+
     def _spin(self, sign):
         if sign >= 0:
             self.robot.motor_left(TURN_SPEED, FWD)
@@ -12,7 +24,9 @@ class TurnMixin:
         else:
             self.robot.motor_left(TURN_SPEED, BWD)
             self.robot.motor_right(TURN_SPEED, FWD)
+
     def _turn(self, degrees):
+        """Pivot roughly `degrees` (positive = clockwise/right), timed only."""
         if not degrees:
             return
         duration = int(abs(degrees) * MS_PER_90 / 90)
